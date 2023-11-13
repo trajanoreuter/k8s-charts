@@ -1,11 +1,11 @@
 replicaCount: 1 # Initial replicas count
 
 image:
-  repository: ""
+  repository: "trajanoreuter/dummy-app"
   pullPolicy: IfNotPresent
-  tag: ""
+  tag: "v1"
 
-containerPort: 80
+containerPort: 3000
 
 securityContext:
   runAsUser: 1000
@@ -34,25 +34,21 @@ initialJob:
   # doc ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/
 
 labels:
-  cost-center: "__change_me__" # cost center
-  env: "__change_me__" # staging | sandbox | production
-  project: "__change_me__" # Project name
-  owner: "__change_me__" # Project owner
-  support: "__change_me__" # Project support team (ex: infraestrutura-aws)
-  github-org: "__change_me__" # Github organization (ex: pagarme, stone-payments)
-  github-repo: "__change_me__" # Github repository name (ex: platform-k8s-charts)
+  cost-center: "111111111" # cost center
+  env: "staging" # staging | sandbox | production
+  project: "dummy" # Project name
+  owner: "trajanoreuter" # Project owner
+  support: "trajanoreuter" # Project support team (ex: infraestrutura-aws)
+  github-org: "trajanoreuter" # Github organization (ex: pagarme, stone-payments)
+  github-repo: "k8s-chart" # Github repository name (ex: platform-k8s-charts)
 
 annotations:
-  documentation: "__change_me__" # Project documentation link
+  documentation: "change" # Project documentation link
 
 application:
-  name: "__change_me__"
-  language: "__change_me__"
-  environment: "__change_me__" # staging | sandbox | production
-
-github:
-  lastCommitSha: ""
-  repositoryUrl: ""
+  name: "dummy"
+  language: "nodejs"
+  environment: "staging" # staging | sandbox | production
 
 nodeSelector: {}
   # purpose: xpto
@@ -99,31 +95,31 @@ secrets:
     # - SECRET_NAME
 
 resources:
-  memory: "500Mi"
-  cpu: "1"
+  memory: "256Mi"
+  cpu: "128m"
 
 datadog:
-  enabled: true
+  enabled: false
   otlp:
     enabled: false
   logs:
-    enabled: true
+    enabled: false
   apm:
     # doc ref: https://docs.datadoghq.com/tracing/trace_collection/library_injection_local/?tab=kubernetes#step-2---annotate-your-pods-for-library-injection
-    enabled: true
+    enabled: false
     injection:
       enabled: false
       libVersion:
       language:
 
 pdb:
-  enabled: true
+  enabled: false
   # doc ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
   minAvailable: 50%
   maxUnavailable: # 1
 
 autoscaling:
-  enabled: true
+  enabled: false
   maxReplicas: 10
   cpu:
     # doc ref: https://keda.sh/docs/2.9/scalers/cpu/
@@ -231,7 +227,7 @@ ingressExternal:
 healthcheck:
   livenessProbe:
     enabled: true
-    path: /
+    path: /status
     failureThreshold: 3
     periodSeconds: 20
     initialDelaySeconds: 15
@@ -239,7 +235,7 @@ healthcheck:
 
   readinessProbe:
     enabled: true
-    path: /
+    path: /status
     failureThreshold: 3
     periodSeconds: 20
     initialDelaySeconds: 15
@@ -249,9 +245,9 @@ steps:
   - setWeight: 20
   - pause: "{duration: 1m}"
   - setWeight: 40
-  - pause: "{duration: 2m}"
+  - pause: "{duration: 1m}"
   - setWeight: 80
-  - pause: "{duration: 3m}"
+  - pause: "{duration: 1m}"
 
 sidecars:
   - name: ""
