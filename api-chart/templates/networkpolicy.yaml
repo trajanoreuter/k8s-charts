@@ -1,0 +1,41 @@
+{{- if .Values.networkpolicy.enabled }}
+{{- $fullName := include "api-chart.fullname" . -}}
+{{- range $npe := .Values.networkpolicy.egress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "{{ $fullName }}-{{ $npe.name }}-egress"
+  labels:
+    {{- include "api-chart.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+   {{- with .Values.annotations }}
+      {{- toYaml . | nindent 4 }}
+   {{- end }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  {{- if not $npe.portscidrs }}
+  - {}
+  {{- else }}
+  {{- range $npe.portscidrs }}
+  - ports:
+    {{- range .ports }}
+    - port: {{ . }}
+      protocol: TCP
+    {{- end }}
+    to:
+    {{- range .cidrs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

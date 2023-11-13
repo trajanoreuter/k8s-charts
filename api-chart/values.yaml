@@ -1,0 +1,285 @@
+replicaCount: 1 # Initial replicas count
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+containerPort: 80
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+
+command: "" # ["/bin/sh"] # exec coomand
+args: ""
+  # - "-c"
+  # - "echo $(date) - hello world"
+
+initialJob:
+  enabled: false
+  image: # image to run the initial job. If not set, the image from the container will be used
+  resources:
+    memory: "256Mi"
+    cpu: "100m"
+  command: "" # ["/bin/sh"] # exec coomand
+  args: ""
+    # - "-c"
+    # - "echo $(date) - hello world"
+  restartPolicy: Never
+  # number of before considering a job as failed
+  backoffLimit: 1
+  parallelism: ""
+  completions: ""
+  # doc ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+
+labels:
+  cost-center: "__change_me__" # cost center
+  env: "__change_me__" # staging | sandbox | production
+  project: "__change_me__" # Project name
+  owner: "__change_me__" # Project owner
+  support: "__change_me__" # Project support team (ex: infraestrutura-aws)
+  github-org: "__change_me__" # Github organization (ex: pagarme, stone-payments)
+  github-repo: "__change_me__" # Github repository name (ex: platform-k8s-charts)
+
+annotations:
+  documentation: "__change_me__" # Project documentation link
+
+application:
+  name: "__change_me__"
+  language: "__change_me__"
+  environment: "__change_me__" # staging | sandbox | production
+
+github:
+  lastCommitSha: ""
+  repositoryUrl: ""
+
+nodeSelector: {}
+  # purpose: xpto
+
+tolerations: [] # Tolerations
+  # - key: "key"
+  #   operator: "Equal"
+  #   value: "value"
+  #   effect: "NoSchedule"
+
+cloudProviders:
+  aws:
+    enabled: false
+    karpenter:
+      enabled: false
+      capacityType: "spot" # available values (spot, on-demand)
+      selector: # the name of the provisioner created by karpenter
+    #https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/docs/irsa_integration.md
+    roleArn:
+  azure:
+    enabled: false
+    #https://azure.github.io/azure-workload-identity/docs/topics/service-account-labels-and-annotations.html#service-account
+    workloadIdentity:
+      clientId:
+      tenantId:
+      serviceAccountTokenExpiration:
+    imagePullSecrets:
+      name: # the registry secret name to extract the image from the centralized ECR in AWS
+
+envs: {} # Env variables for configuration
+  # CONFIG_NAME: value
+
+jsonEnvs: {} # JSON Env variables for configuration
+  # CONFIG_NAME: {"somefield": "someValue"}
+
+secrets:
+  envVarEnabled: false # set it to true if you want to use env vars instead of mounting volumes
+  secretStore:
+    name: cluster-secret-store-vault # defines the ClusterSecretStore to be used, in the recovery of the secrets
+    kind: ClusterSecretStore # defines the kind of the ClusterSecretStore to be used, in the recovery of the secrets
+  kv:
+  path:
+  keys: [] # Secrets
+    # - SECRET_NAME
+
+resources:
+  memory: "500Mi"
+  cpu: "1"
+
+datadog:
+  enabled: true
+  otlp:
+    enabled: false
+  logs:
+    enabled: true
+  apm:
+    # doc ref: https://docs.datadoghq.com/tracing/trace_collection/library_injection_local/?tab=kubernetes#step-2---annotate-your-pods-for-library-injection
+    enabled: true
+    injection:
+      enabled: false
+      libVersion:
+      language:
+
+pdb:
+  enabled: true
+  # doc ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  minAvailable: 50%
+  maxUnavailable: # 1
+
+autoscaling:
+  enabled: true
+  maxReplicas: 10
+  cpu:
+    # doc ref: https://keda.sh/docs/2.9/scalers/cpu/
+    target: "80"
+    metricType: Utilization
+  memory:
+    # doc ref: https://keda.sh/docs/2.9/scalers/memory/
+    target: "80"
+    metricType: Utilization
+  kafka:
+    # doc ref: https://keda.sh/docs/2.9/scalers/apache-kafka/
+    bootstrapServers: ""
+    consumerGroup: ""       # Make sure that this consumer group name is the same one as the one that is consuming topics
+    topic: ""
+    pollingInterval: ""
+    # Optional
+    lagThreshold: ""
+    offsetResetPolicy: ""
+    activationLagThreshold: ""
+    allowIdleConsumers: ""
+    scaleToZeroOnInvalidOffset: ""
+    excludePersistentLag: ""
+    version: ""
+    partitionLimitation: ""
+    # if you need to use tls, set to true
+    tls: false
+    # if you need ca and cert, set to true. You need to create 3 secrets (KAFKA_CA, KAFKA_CERT and KAFKA_KEY)
+    caAndCert: false
+    # if you chose this options, you need to create 2 secrets (KAFKA_USERNAME and KAFKA_PASSWORD).
+    sasl: ""
+  datadog:
+    # Need to create apiKey and appKey secrets before use and autoscaling.withSecrets = true
+    # doc ref: https://keda.sh/docs/2.9/scalers/datadog/
+    metricType: "Value"
+    query: ""
+    queryValue: ""
+    # Optional
+    age: ""
+    metricUnavailableValue: ""
+    queryAggregator: ""
+    timeWindowOffset: ""
+    lastAvailablePointOffset: ""
+  sqs:
+    # Need to create IRSA (https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/docs/irsa_integration.md) with the right permissions before use and autoscaling.withSecrets = true
+    # doc ref: https://keda.sh/docs/2.9/scalers/aws-sqs/
+    queueURL: ""
+    queueLength: ""
+    awsRegion: "us-east-1"
+    # Optional
+    scaleOnInFlight: ""
+  rabbitmq:
+    # Need to create rabbitHost secret before use and autoscaling.withSecrets = true (ex:amqp://guest:password@localhost:5672/vhost)
+    # doc ref: https://keda.sh/docs/2.9/scalers/rabbitmq-queue/
+    protocol: amqp
+    queueName: ""
+    mode: ""
+    value: ""
+    # Optional
+    metricName: ""
+  azureServiceBus:
+    # doc ref: https://keda.sh/docs/2.11/scalers/azure-service-bus/
+    # required
+    queueName:
+    # or
+    topicName:
+    subscriptionName:
+    # Optional, required when pod identity is used
+    namespace:
+    # Optional, can use TriggerAuthentication as well
+    # If set to true, the scaler will use the connection string from the environment variable called SERVICEBUS_CONNECTIONSTRING
+    # And you need to create a secret with this key: SERVICEBUS_CONNECTIONSTRING
+    connectionFromEnv: false # true or false
+    # Optional
+    messageCount: # string
+    activationMessageCount: # string
+    cloud: # Private # Optional. Default: AzurePublicCloud
+    endpointSuffix: # Required when cloud=Private
+
+ingress:
+  enabled: false
+  class: ingress-nginx
+  hosts:
+    - host: chart-example.local
+      paths:
+      - path: /
+  # Optional
+  # tls:
+  #   - secretName: ""
+  #     hosts:
+  #       - chart-example.local
+
+ingressExternal:
+  enabled: false
+  class: ingress-nginx-external
+  hosts:
+    - host: chart-example.local
+      paths:
+      - path: /
+  # Optional
+  # tls:
+  #   - secretName: ""
+  #     hosts:
+  #       - chart-example.local
+
+healthcheck:
+  livenessProbe:
+    enabled: true
+    path: /
+    failureThreshold: 3
+    periodSeconds: 20
+    initialDelaySeconds: 15
+    timeoutSeconds: 10
+
+  readinessProbe:
+    enabled: true
+    path: /
+    failureThreshold: 3
+    periodSeconds: 20
+    initialDelaySeconds: 15
+    timeoutSeconds: 10
+
+steps:
+  - setWeight: 20
+  - pause: "{duration: 1m}"
+  - setWeight: 40
+  - pause: "{duration: 2m}"
+  - setWeight: 80
+  - pause: "{duration: 3m}"
+
+sidecars:
+  - name: ""
+    enabled: false
+    command: "" # ["/bin/sh"]
+    args: ""
+      # - "-c"
+      # - "echo $(date) - hello world"
+    secrets: [] # Secrets
+      # - SECRET_NAME
+    envs: {} # Env variables for configuration
+      # CONFIG_NAME: value
+    containerPort: ""
+    resources:
+      memory: "128Mi"
+      cpu: "100m"
+    image: ""
+
+networkpolicy:
+  enabled: false
+  # Output rule
+  egress:
+    # You need to put the name of the application destination and configure ports and IPs.
+    # Example below
+    - name: application_name_destination
+      portscidrs:
+      - ports:
+        - 80
+        - 443
+      - cidrs: []
+    # To add new rules, just replicate the block above.

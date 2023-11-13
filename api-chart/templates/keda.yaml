@@ -1,0 +1,218 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ include "api-chart.fullname" . }}-trigger-auth
+  labels:
+    {{- include "api-chart.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.cloudProviders.aws.enabled }}
+  podIdentity:
+    provider: aws-eks
+  {{- end }}
+  {{- if .Values.cloudProviders.azure.enabled }}
+  podIdentity:
+    provider:  azure-workload
+  {{- end }}
+  env:
+  {{- if .Values.autoscaling.kafka.tls }}
+  - parameter: tls
+    name: KAFKA_TLS
+  {{- end }}
+  {{- if .Values.autoscaling.kafka.sasl }}
+  - parameter: sasl
+    name: KAFKA_SASL
+  {{- end }}
+  secretTargetRef:
+  {{- if .Values.autoscaling.kafka.caAndCert }}
+  - parameter: ca
+    name: {{ include "platform-k8s-worker-chart.fullname" $ }}
+    key: KAFKA_CA
+  - parameter: cert
+    name: {{ include "platform-k8s-worker-chart.fullname" $ }}
+    key: KAFKA_CERT
+  - parameter: key
+    name: {{ include "platform-k8s-worker-chart.fullname" $ }}
+    key: KAFKA_KEY
+  {{- end }}
+  {{- if .Values.autoscaling.kafka.sasl }}
+  - parameter: username
+    name: {{ include "platform-k8s-worker-chart.fullname" $ }}
+    key: KAFKA_USERNAME
+  - parameter: password
+    name: {{ include "platform-k8s-worker-chart.fullname" $ }}
+    key: KAFKA_PASSWORD
+  {{- end }}
+  {{- if .Values.autoscaling.rabbitmq.queueName }}
+  - parameter: host
+    name: {{ include "api-chart.fullname" $ }}
+    key: rabbitHost
+  {{- end }}
+    # Required: API key for your Datadog account
+  {{- if .Values.datadog.enabled }}
+  - parameter: apiKey
+    name: {{ include "api-chart.fullname" $ }}
+    key: datadogApiKey
+    # Required: APP key for your Datadog account
+  - parameter: appKey
+    name: {{ include "api-chart.fullname" $ }}
+    key: datadogAppKey
+  {{- end }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "api-chart.fullname" . }}-scaler
+  labels:
+    {{- include "api-chart.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: {{ include "api-chart.fullname" . }}
+  minReplicaCount: {{ .Values.replicaCount }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
+  {{- if .Values.autoscaling.kafka.pollingInterval }}
+  pollingInterval: {{ .Values.autoscaling.kafka.pollingInterval }}
+  {{- end }}
+  triggers:
+  {{- if .Values.autoscaling.cpu.target }}
+    - type: cpu
+      metricType: {{ .Values.autoscaling.cpu.metricType }}
+      metadata:
+        value: !!str {{ .Values.autoscaling.cpu.target }}
+  {{- end }}
+  {{- if .Values.autoscaling.memory.target }}
+    - type: memory
+      metricType: {{ .Values.autoscaling.memory.metricType }}
+      metadata:
+        value: !!str {{ .Values.autoscaling.memory.target }}
+  {{- end }}
+  {{- if .Values.autoscaling.kafka.bootstrapServers }}
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.autoscaling.kafka.bootstrapServers }}
+        consumerGroup: {{ .Values.autoscaling.kafka.consumerGroup }}
+        topic: {{ .Values.autoscaling.kafka.topic }}
+        {{- if .Values.autoscaling.kafka.lagThreshold }}
+        lagThreshold: !!str {{ .Values.autoscaling.kafka.lagThreshold }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.offsetResetPolicy }}
+        offsetResetPolicy: {{ .Values.autoscaling.kafka.offsetResetPolicy }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.activationLagThreshold }}
+        activationLagThreshold: !!str {{ .Values.autoscaling.kafka.activationLagThreshold }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.allowIdleConsumers }}
+        allowIdleConsumers: {{ .Values.autoscaling.kafka.allowIdleConsumers }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.scaleToZeroOnInvalidOffset }}
+        scaleToZeroOnInvalidOffset: {{ .Values.autoscaling.kafka.scaleToZeroOnInvalidOffset }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.excludePersistentLag }}
+        excludePersistentLag: {{ .Values.autoscaling.kafka.excludePersistentLag }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.version }}
+        version: {{ .Values.autoscaling.kafka.version }}
+        {{- end }}
+        {{- if .Values.autoscaling.kafka.partitionLimitation }}
+        partitionLimitation: !!str {{ .Values.autoscaling.kafka.partitionLimitation }}
+        {{- end }}
+      authenticationRef:
+        name: {{ include "api-chart.fullname" . }}-trigger-auth
+  {{- end }}
+  {{- if and .Values.datadog.enabled .Values.autoscaling.datadog.query }}
+    - type: datadog
+      metricType: "Value"
+      metadata:
+        query: {{ .Values.autoscaling.datadog.query }}
+        queryValue: {{ .Values.autoscaling.datadog.queryValue }}
+        {{- if .Values.autoscaling.datadog.age }}
+        age: {{ .Values.autoscaling.datadog.age }}
+        {{- end }}
+        {{- if .Values.autoscaling.datadog.metricUnavailableValue }}
+        metricUnavailableValue: {{ .Values.autoscaling.datadog.metricUnavailableValue }}
+        {{- end }}
+        {{- if .Values.autoscaling.datadog.queryAggregator }}
+        queryAggregator: {{ .Values.autoscaling.datadog.queryAggregator }}
+        {{- end }}
+        {{- if .Values.autoscaling.datadog.timeWindowOffset }}
+        timeWindowOffset: {{ .Values.autoscaling.datadog.timeWindowOffset }}
+        {{- end }}
+        {{- if .Values.autoscaling.datadog.lastAvailablePointOffset }}
+        timeWindowOffset: {{ .Values.autoscaling.datadog.lastAvailablePointOffset }}
+        {{- end }}
+      authenticationRef:
+        name: {{ include "api-chart.fullname" . }}-trigger-auth
+  {{- end }}
+  {{- if .Values.autoscaling.sqs.queueURL }}
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: {{ include "api-chart.fullname" . }}-trigger-auth
+      metadata:
+        queueURL: {{ .Values.autoscaling.sqs.queueURL }}
+        queueLength: {{ .Values.autoscaling.sqs.queueLength }}
+        awsRegion: {{ .Values.autoscaling.sqs.awsRegion }}
+        {{- if .Values.autoscaling.sqs.scaleOnInFlight }}
+        scaleOnInFlight: {{ .Values.autoscaling.sqs.scaleOnInFlight }}
+        {{- end }}
+  {{- end }}
+  {{- if .Values.autoscaling.rabbitmq.queueName }}
+    - type: rabbitmq
+      metadata:
+        protocol: {{ .Values.autoscaling.rabbitmq.protocol }}
+        queueName: {{ .Values.autoscaling.rabbitmq.queueName }}
+        mode: {{ .Values.autoscaling.rabbitmq.mode }}
+        value: !!str {{ .Values.autoscaling.rabbitmq.value }}
+        {{- if .Values.autoscaling.rabbitmq.metricName }}
+        metricName: {{ .Values.autoscaling.rabbitmq.metricName }}
+        {{- end }}
+      authenticationRef:
+        name: {{ include "api-chart.fullname" . }}-trigger-auth
+  {{- end }}
+  {{- if or .Values.autoscaling.azureServiceBus.queueName (and .Values.autoscaling.azureServiceBus.topicName .Values.autoscaling.azureServiceBus.subscriptionName) }}
+    - type: azure-servicebus
+      metadata:
+        {{- if .Values.autoscaling.azureServiceBus.queueName }}
+        queueName: {{ .Values.autoscaling.azureServiceBus.queueName }}
+        {{- end }}
+        {{- if and .Values.autoscaling.azureServiceBus.topicName .Values.autoscaling.azureServiceBus.subscriptionName }}
+        topicName: {{ .Values.autoscaling.azureServiceBus.topicName }}
+        subscriptionName: {{ .Values.autoscaling.azureServiceBus.subscriptionName }}
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.namespace }}
+        namespace: {{ .Values.autoscaling.azureServiceBus.namespace }}
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.connectionFromEnv }}
+        connectionFromEnv: SERVICEBUS_CONNECTIONSTRING
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.messageCount }}
+        messageCount: !!str {{ .Values.autoscaling.azureServiceBus.messageCount }}
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.activationMessageCount }}
+        activationMessageCount: !!str {{ .Values.autoscaling.azureServiceBus.activationMessageCount }}
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.cloud }}
+        cloud: {{ .Values.autoscaling.azureServiceBus.cloud }}
+        {{- end }}
+        {{- if .Values.autoscaling.azureServiceBus.endpointSuffix }}
+        endpointSuffix: {{ .Values.autoscaling.azureServiceBus.endpointSuffix }}
+        {{- end }}
+      authenticationRef:
+        name: {{ include "api-chart.fullname" . }}-trigger-auth
+  {{- end }}
+{{- end }}
