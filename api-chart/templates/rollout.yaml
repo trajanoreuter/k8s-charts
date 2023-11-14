@@ -25,9 +25,9 @@ spec:
     canary:
       canaryService: {{ include "api-chart.fullname" . }}-canary
       stableService: {{ include "api-chart.fullname" . }}-stable
-      trafficRouting:
-        nginx:
-          stableIngress: {{ include "api-chart.fullname" . }}
+      #trafficRouting:
+        #nginx:
+          #stableIngress: {{ include "api-chart.fullname" . }}
       {{- if .Values.steps }}
       steps:
       {{- range $k, $v := .Values.steps }}
